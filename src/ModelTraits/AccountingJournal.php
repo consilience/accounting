@@ -23,8 +23,12 @@ trait AccountingJournal
      * @return mixed
      * @throws JournalAlreadyExists
      */
-    public function initJournal(?string $currency_code = 'USD', ?string $ledger_id = null)
+    public function initJournal(?string $currency_code = null, ?string $ledger_id = null)
     {
+        if ($currency_code === null) {
+            $currency_code = config('accounting.base_currency');
+        }
+
         if (!$this->journal) {
             $journal = new Journal();
             $journal->ledger_id = $ledger_id;

@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Scottlaurent\Accounting\Models;
 
+use Money\Money;
+use Carbon\Carbon;
+use Money\Currency;
 use Illuminate\Database\Eloquent\Model;
+use Scottlaurent\Accounting\Enums\LedgerType;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
-use Money\Money;
-use Money\Currency;
-use Carbon\Carbon;
 
 /**
  * @property    Money $balance
@@ -24,9 +25,13 @@ class Ledger extends Model
      */
     protected $table = 'accounting_ledgers';
 
+    protected $casts = [
+        'type' => LedgerType::class,
+    ];
+
     public function journals(): HasMany
     {
-        return $this->hasMany(Journal::class);
+        return $this->hasMany(config('accounting.model-classes.journal'));
     }
 
     /**
@@ -34,7 +39,7 @@ class Ledger extends Model
      */
     public function journal_transactions(): HasManyThrough
     {
-        return $this->hasManyThrough(JournalTransaction::class, Journal::class);
+        return $this->hasManyThrough(config('accounting.model-classes.journal-transaction'), Journal::class);
     }
 
     public function getCurrentBalance(string $currency): Money

@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
 
-class CreateAccountingJournalsTable extends Migration
+return new class extends Migration
 {
     public function up(): void
     {
@@ -15,7 +15,7 @@ class CreateAccountingJournalsTable extends Migration
             $table->unsignedInteger('ledger_id')->nullable();
             $table->bigInteger('balance');
             $table->string('currency', 5);
-            $table->string('morphed_type', 32);
+            $table->string('morphed_type', 60);
             $table->integer('morphed_id');
             $table->timestamps();
         });
@@ -25,4 +25,4 @@ class CreateAccountingJournalsTable extends Migration
     {
         Schema::dropIfExists('accounting_journals');
     }
-}
+};

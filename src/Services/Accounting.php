@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Scottlaurent\Accounting\Services;
 
 use Carbon\Carbon;
+use Exception;
 use Scottlaurent\Accounting\Models\Journal;
 use Money\Money;
 use Money\Currency;
@@ -96,6 +97,7 @@ class Accounting
     public function commit(): string
     {
         $this->verifyTransactionCreditsEqualDebits();
+
         try {
             $transactionGroupUUID = \Ramsey\Uuid\Uuid::uuid4()->toString();
 
@@ -113,7 +115,7 @@ class Accounting
 
             return $transactionGroupUUID;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             throw new TransactionCouldNotBeProcessed('Rolling Back Database. Message: ' . $e->getMessage());
         }

@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
 
-class CreateAccountingJournalTransactionsTable extends Migration
+return new class extends Migration
 {
     /**
      * @var array
@@ -21,11 +21,11 @@ class CreateAccountingJournalTransactionsTable extends Migration
             $table->integer('journal_id');
             $table->bigInteger('debit')->nullable();
             $table->bigInteger('credit')->nullable();
-            $table->char('currency', 5);
+            $table->char('currency', 3);
             $table->text('memo')->nullable();
             $table->text('tags')->nullable();
-            $table->char('ref_class', 32)->nullable();
-            $table->integer('ref_class_id')->nullable();
+            $table->char('reference_type', 60)->nullable();
+            $table->integer('reference_id')->nullable();
             $table->timestamps();
             $table->dateTime('post_date');
             $table->softDeletes();
@@ -36,4 +36,4 @@ class CreateAccountingJournalTransactionsTable extends Migration
     {
         Schema::dropIfExists('accounting_journal_transactions');
     }
-}
+};

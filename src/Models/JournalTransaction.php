@@ -30,6 +30,9 @@ class JournalTransaction extends Model
     /**
      * Currency.
      *
+     * @todo this is a currency *code* - change the name or hint to Currency.
+     * @todo also, should it not be an attribute, since it is a column in the database?
+     *
      * @var string $currency
      */
     protected $currency;
@@ -38,6 +41,8 @@ class JournalTransaction extends Model
      * @var bool
      */
     public $incrementing = false;
+
+    protected $keyType = 'string';
 
     /**
      * @var array
@@ -59,18 +64,19 @@ class JournalTransaction extends Model
     {
         parent::boot();
         static::creating(function ($transaction) {
+            // @todo Laravel will give UUIDs out of the box now. Use that instead.
             $transaction->id = \Ramsey\Uuid\Uuid::uuid4()->toString();
         });
 
-//        static::saved(function ($transaction) {
-//            $transaction->journal->resetCurrentBalances();
-//        });
+    //    static::saved(function ($transaction) {
+    //        $transaction->journal->resetCurrentBalances();
+    //    });
 
         static::deleted(function ($transaction) {
             $transaction->journal->resetCurrentBalances();
         });
 
-        parent::boot();
+        // parent::boot();
     }
 
     /**
@@ -78,7 +84,7 @@ class JournalTransaction extends Model
      */
     public function journal()
     {
-        return $this->belongsTo(Journal::class);
+        return $this->belongsTo(config('accounting.model-classes.journal'));
     }
 
     /**
@@ -89,8 +95,8 @@ class JournalTransaction extends Model
      */
     public function referencesObject($object)
     {
-        $this->ref_class    = get_class($object);
-        $this->ref_class_id = $object->id;
+        $this->reference_type = get_class($object);
+        $this->reference_id = $object->id;
         $this->save();
         return $this;
     }
@@ -105,8 +111,8 @@ class JournalTransaction extends Model
         /**
          * @var Model $_class
          */
-        $_class = new $this->ref_class;
-        return $_class->find($this->ref_class_id);
+        $_class = new $this->reference_type;
+        return $_class->find($this->reference_id);
     }
 
     /**

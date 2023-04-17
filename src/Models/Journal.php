@@ -11,13 +11,17 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Money\Money;
 use Money\Currency;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 
 /**
  * @property    Money $balance
  * @property    string $currency
- * @property    Carbon $updated_at
- * @property    Carbon $post_date
- * @property    Carbon $created_at
+ * @property    CarbonInterface $updated_at
+ * @property    CarbonInterface $post_date
+ * @property    CarbonInterface $created_at
+ * @property    Model $morphed
+ * @property    Ledger $ledger
  */
 class Journal extends Model
 {
@@ -26,6 +30,11 @@ class Journal extends Model
      */
     protected $table = 'accounting_journals';
 
+    /**
+     * Relationship to all the model instance this journal applies to.
+     *
+     * @return MorphTo
+     */
     public function morphed(): MorphTo
     {
         return $this->morphTo();
@@ -33,25 +42,25 @@ class Journal extends Model
 
     public function ledger(): BelongsTo
     {
-        return $this->belongsTo(Ledger::class);
+        return $this->belongsTo(config('accounting.model-classes.ledger'));
     }
 
     /**
      * @var array
      */
-    protected $dates = [
-        'deleted_at',
-        'updated_at'
+    protected $casts = [
+        // 'deleted_at' => 'timestamp',
     ];
 
     protected static function boot()
     {
         parent::boot();
-        static::created(function (Journal $journal) {
-            $journal->resetCurrentBalances();
-        });
 
-        parent::boot();
+        static::created(
+            fn (Journal $journal) => $journal->resetCurrentBalances()
+        );
+
+        // parent::boot();
     }
 
     public function setCurrency(string $currency): void
@@ -66,7 +75,7 @@ class Journal extends Model
 
     public function transactions(): HasMany
     {
-        return $this->hasMany(JournalTransaction::class);
+        return $this->hasMany(config('accounting.model-classes.journal-transaction'));
     }
 
     public function resetCurrentBalances(): Money
@@ -98,7 +107,7 @@ class Journal extends Model
     /**
      * Get the debit only balance of the journal based on a given date.
      */
-    public function getDebitBalanceOn(Carbon $date): Money
+    public function getDebitBalanceOn(CarbonInterface $date): Money
     {
         $balance = $this->transactions()->where('post_date', '<=', $date)->sum('debit') ?: 0;
         return new Money($balance, new Currency($this->currency));
@@ -109,14 +118,14 @@ class Journal extends Model
     {
         return $this
             ->transactions()
-            ->where('ref_class', get_class($object))
-            ->where('ref_class_id', $object->id);
+            ->where('reference_type', get_class($object))
+            ->where('reference_id', $object->id);
     }
 
     /**
      * Get the credit only balance of the journal based on a given date.
      */
-    public function getCreditBalanceOn(Carbon $date): Money
+    public function getCreditBalanceOn(CarbonInterface $date): Money
     {
         $balance = $this->transactions()->where('post_date', '<=', $date)->sum('credit') ?: 0;
         return new Money($balance, new Currency($this->currency));
@@ -125,7 +134,7 @@ class Journal extends Model
     /**
      * Get the balance of the journal based on a given date.
      */
-    public function getBalanceOn(Carbon $date): Money
+    public function getBalanceOn(CarbonInterface $date): Money
     {
         return $this->getCreditBalanceOn($date)->subtract($this->getDebitBalanceOn($date));
     }
@@ -156,24 +165,24 @@ class Journal extends Model
      * Get the balance of the journal in dollars.  This "could" include future dates.
      * @return float|int
      */
-    public function getCurrentBalanceInDollars()
-    {
-        return $this->getCurrentBalance()->getAmount() / 100;
-    }
+    // public function getCurrentBalanceInDollars()
+    // {
+    //     return $this->getCurrentBalance()->getAmount() / 100;
+    // }
 
     /**
      * Get balance
      * @return float|int
      */
-    public function getBalanceInDollars()
-    {
-        return $this->getBalance()->getAmount() / 100;
-    }
+    // public function getBalanceInDollars()
+    // {
+    //     return $this->getBalance()->getAmount() / 100;
+    // }
 
     public function credit(
         $value,
         string $memo = null,
-        Carbon $post_date = null,
+        CarbonInterface $post_date = null,
         string $transaction_group = null
     ): JournalTransaction {
         $value = is_a($value, Money::class)
@@ -185,7 +194,7 @@ class Journal extends Model
     public function debit(
         $value,
         string $memo = null,
-        Carbon $post_date = null,
+        CarbonInterface $post_date = null,
         $transaction_group = null
     ): JournalTransaction {
         $value = is_a($value, Money::class)
@@ -198,85 +207,85 @@ class Journal extends Model
      * Credit a journal by a given dollar amount
      * @param Money|float $value
      * @param string  $memo
-     * @param Carbon $post_date
+     * @param CarbonInterface $post_date
      * @return JournalTransaction
      */
-    public function creditDollars($value, string $memo = null, Carbon $post_date = null): JournalTransaction
-    {
-        $value = (int)($value * 100);
-        return $this->credit($value, $memo, $post_date);
-    }
+    // public function creditDollars($value, string $memo = null, CarbonInterface $post_date = null): JournalTransaction
+    // {
+    //     $value = (int)($value * 100);
+    //     return $this->credit($value, $memo, $post_date);
+    // }
 
     /**
      * Debit a journal by a given dollar amount
      * @param Money|float $value
      * @param string $memo
-     * @param Carbon $post_date
+     * @param CarbonInterface $post_date
      * @return JournalTransaction
      */
-    public function debitDollars($value, string $memo = null, Carbon $post_date = null): JournalTransaction
-    {
-        $value = (int)($value * 100);
-        return $this->debit($value, $memo, $post_date);
-    }
+    // public function debitDollars($value, string $memo = null, CarbonInterface $post_date = null): JournalTransaction
+    // {
+    //     $value = (int)($value * 100);
+    //     return $this->debit($value, $memo, $post_date);
+    // }
 
     /**
      * Calculate the dollar amount debited to a journal today
      * @return float|int
      */
-    public function getDollarsDebitedToday()
-    {
-        $today = Carbon::now();
-        return $this->getDollarsDebitedOn($today);
-    }
+    // public function getDollarsDebitedToday()
+    // {
+    //     $today = Carbon::now();
+    //     return $this->getDollarsDebitedOn($today);
+    // }
 
     /**
      * Calculate the dollar amount credited to a journal today
      * @return float|int
      */
-    public function getDollarsCreditedToday()
-    {
-        $today = Carbon::now();
-        return $this->getDollarsCreditedOn($today);
-    }
+    // public function getDollarsCreditedToday()
+    // {
+    //     $today = CarbonImmutable::now();
+    //     return $this->getDollarsCreditedOn($today);
+    // }
 
     /**
      * Calculate the dollar amount debited to a journal on a given day
-     * @param Carbon $date
+     * @param CarbonInterface $date
      * @return float|int
      */
-    public function getDollarsDebitedOn(Carbon $date)
-    {
-        return $this
-                ->transactions()
-                ->whereBetween('post_date', [
-                    $date->copy()->startOfDay(),
-                    $date->copy()->endOfDay()
-                ])
-                ->sum('debit') / 100;
-    }
+    // public function getDollarsDebitedOn(CarbonInterface $date)
+    // {
+    //     return $this
+    //             ->transactions()
+    //             ->whereBetween('post_date', [
+    //                 $date->copy()->startOfDay(),
+    //                 $date->copy()->endOfDay()
+    //             ])
+    //             ->sum('debit') / 100;
+    // }
 
     /**
      * Calculate the dollar amount credited to a journal on a given day
-     * @param Carbon $date
+     * @param CarbonInterface $date
      * @return float|int
      */
-    public function getDollarsCreditedOn(Carbon $date)
-    {
-        return $this
-                ->transactions()
-                ->whereBetween('post_date', [
-                    $date->copy()->startOfDay(),
-                    $date->copy()->endOfDay()
-                ])
-                ->sum('credit') / 100;
-    }
+    // public function getDollarsCreditedOn(CarbonInterface $date)
+    // {
+    //     return $this
+    //             ->transactions()
+    //             ->whereBetween('post_date', [
+    //                 $date->copy()->startOfDay(),
+    //                 $date->copy()->endOfDay()
+    //             ])
+    //             ->sum('credit') / 100;
+    // }
 
     private function post(
         Money $credit = null,
         Money $debit = null,
         string $memo = null,
-        Carbon $post_date = null,
+        CarbonInterface $post_date = null,
         string $transaction_group = null
     ): JournalTransaction {
         $transaction = new JournalTransaction;
