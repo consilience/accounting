@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Scottlaurent\Accounting\Exceptions\JournalAlreadyExists;
 use Scottlaurent\Accounting\Models\Journal;
 
+/**
+ * @property Journal $journal
+ */
 trait AccountingJournal
 {
     public function journal(): MorphOne

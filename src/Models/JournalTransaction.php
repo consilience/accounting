@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Scottlaurent\Accounting\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Money\Currency;
+use Money\Money;
 
 /**
  * Class JournalTransaction
@@ -35,7 +38,7 @@ class JournalTransaction extends Model
      *
      * @var string $currency
      */
-    protected $currency;
+    // protected $currency;
 
     /**
      * @var bool
@@ -116,6 +119,16 @@ class JournalTransaction extends Model
     }
 
     /**
+     * Reference the related object as a polymorphic relation.
+     *
+     * @return MorphTo
+     */
+    public function reference(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    /**
      * Set currency.
      *
      * @param string $currency
@@ -125,4 +138,19 @@ class JournalTransaction extends Model
         $this->currency = $currency;
     }
 
+    public function getCreditAttribute(): ?Money
+    {
+        if ($this->attributes['credit'] !== null) {
+            return new Money($this->attributes['credit'], new Currency($this->currency));
+        }
+        return null;
+    }
+
+    public function getDebitAttribute(): ?Money
+    {
+        if ($this->attributes['debit'] !== null) {
+            return new Money($this->attributes['debit'], new Currency($this->currency));
+        }
+        return null;
+    }
 }
