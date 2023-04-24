@@ -11,10 +11,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('accounting_ledgers', function (Blueprint $table) {
-            $table->increments('id');
-            $table->string('name');
-            $table->enum('type', ['asset', 'liability', 'equity', 'income', 'expense']);
+            $table->id();
             $table->timestamps();
+
+            $table->string('name');
+            // One of: 'asset', 'liability', 'equity', 'income', 'expense'
+            $table->string('type', 30);
         });
     }
 

@@ -131,6 +131,9 @@ class JournalTransaction extends Model
     /**
      * Set currency.
      *
+     * @deprecated The currency [code] is a column attribute, so can be handled through
+     * the usual Eloquent mechanisms.
+     *
      * @param string $currency
      */
     public function setCurrency($currency)

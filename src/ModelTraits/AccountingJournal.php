@@ -37,6 +37,7 @@ trait AccountingJournal
             $journal->ledger_id = $ledger_id;
             $journal->currency = $currency_code;
             $journal->balance = 0;
+
             return $this->journal()->save($journal);
         }
         throw new JournalAlreadyExists;
