@@ -4,41 +4,32 @@ declare(strict_types=1);
 
 namespace Scottlaurent\Accounting\Models;
 
+use Money\Money;
+use Money\Currency;
+use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
-use Money\Currency;
-use Money\Money;
 
 /**
- * Class JournalTransaction
- *
- * @package Scottlaurent\Accounting
- * @property    string $journal_id
- * @property    int $debit
- * @property    int $credit
- * @property    string $currency
- * @property    string memo
- * @property    \Carbon\Carbon $post_date
- * @property    \Carbon\Carbon $updated_at
- * @property    \Carbon\Carbon $created_at
+ * @property string $id
+ * @property string $journal_id
+ * @property int $debit
+ * @property int $credit
+ * @property string $currency currency code (GBP, CAD, etc)
+ * @property string|null $memo
+ * @property array $tags
+ * @property Journal $journal
+ * @property Carbon $post_date
+ * @property Carbon $updated_at
+ * @property Carbon $created_at
  */
 class JournalTransaction extends Model
 {
-
     /**
      * @var string
      */
     protected $table = 'accounting_journal_transactions';
-
-    /**
-     * Currency.
-     *
-     * @todo this is a currency *code* - change the name or hint to Currency.
-     * @todo also, should it not be an attribute, since it is a column in the database?
-     *
-     * @var string $currency
-     */
-    // protected $currency;
 
     /**
      * @var bool
@@ -66,20 +57,23 @@ class JournalTransaction extends Model
     protected static function boot()
     {
         parent::boot();
-        static::creating(function ($transaction) {
-            // @todo Laravel will give UUIDs out of the box now. Use that instead.
-            $transaction->id = \Ramsey\Uuid\Uuid::uuid4()->toString();
+
+        static::creating(function (self $transaction) {
+            $transaction->id = (string)Str::orderedUuid();
         });
 
-    //    static::saved(function ($transaction) {
-    //        $transaction->journal->resetCurrentBalances();
-    //    });
+        // @todo make these asychronous so the balance can be updated in the background,
+        // and event driven so it can be used or not.
+        // The job can also be set up to queue only if a copy of the job is not already
+        // queued for the same journal.
 
-        static::deleted(function ($transaction) {
+        static::saved(function (self $transaction) {
             $transaction->journal->resetCurrentBalances();
         });
 
-        // parent::boot();
+        static::deleted(function (self $transaction) {
+            $transaction->journal->resetCurrentBalances();
+        });
     }
 
     /**
@@ -93,33 +87,25 @@ class JournalTransaction extends Model
     /**
      * Set reference object.
      *
+     * @deprecated use the reference relation instead.
+     *
      * @param Model $object
      * @return JournalTransaction
      */
     public function referencesObject($object)
     {
-        $this->reference_type = get_class($object);
+        $this->reference_type = $object->getMorphClass();
         $this->reference_id = $object->id;
         $this->save();
+
         return $this;
     }
 
     /**
-     * Get reference object.
-     *
-     * @return \Illuminate\Database\Eloquent\Collection|Model|Model[]|null
-     */
-    public function getReferencedObject()
-    {
-        /**
-         * @var Model $_class
-         */
-        $_class = new $this->reference_type;
-        return $_class->find($this->reference_id);
-    }
-
-    /**
      * Reference the related object as a polymorphic relation.
+     *
+     * To associate a model with a transaction, use:
+     *      $transaction->reference()->associate($model);
      *
      * @return MorphTo
      */

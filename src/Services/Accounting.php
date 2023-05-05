@@ -15,6 +15,7 @@ use Scottlaurent\Accounting\Exceptions\{InvalidJournalEntryValue,
     TransactionCouldNotBeProcessed
 };
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class Accounting
 {
@@ -94,29 +95,36 @@ class Accounting
         return $this->transactions_pending;
     }
 
+    /**
+     * Save a transaction group.
+     *
+     * @return string
+     */
     public function commit(): string
     {
-        $this->verifyTransactionCreditsEqualDebits();
+        $this->assertTransactionCreditsEqualDebits();
 
         try {
-            $transactionGroupUUID = \Ramsey\Uuid\Uuid::uuid4()->toString();
+            return DB::transaction(function () {
+                $transactionGroupUuid = (string)Str::orderedUuid();
 
-            DB::beginTransaction();
+                foreach ($this->transactions_pending as $transaction_pending) {
+                    $transaction = $transaction_pending['journal']->{$transaction_pending['method']}(
+                        $transaction_pending['money'],
+                        $transaction_pending['memo'],
+                        $transaction_pending['postdate'],
+                        $transactionGroupUuid,
+                    );
 
-            foreach ($this->transactions_pending as $transaction_pending) {
-                $transaction = $transaction_pending['journal']->{$transaction_pending['method']}($transaction_pending['money'],
-                    $transaction_pending['memo'], $transaction_pending['postdate'], $transactionGroupUUID);
-                if ($object = $transaction_pending['referenced_object']) {
-                    $transaction->referencesObject($object);
+                    if ($object = $transaction_pending['referenced_object']) {
+                        $transaction->reference()->associate($object);
+                    }
                 }
-            }
 
-            DB::commit();
-
-            return $transactionGroupUUID;
+                return $transactionGroupUuid;
+            });
 
         } catch (Exception $e) {
-            DB::rollBack();
             throw new TransactionCouldNotBeProcessed('Rolling Back Database. Message: ' . $e->getMessage());
         }
     }
@@ -124,7 +132,7 @@ class Accounting
     /**
      * @throws DebitsAndCreditsDoNotEqual
      */
-    private function verifyTransactionCreditsEqualDebits(): void
+    private function assertTransactionCreditsEqualDebits(): void
     {
         $credits = 0;
         $debits = 0;

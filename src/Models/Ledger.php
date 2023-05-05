@@ -42,19 +42,26 @@ class Ledger extends Model
         return $this->hasManyThrough(config('accounting.model-classes.journal-transaction'), Journal::class);
     }
 
+    /**
+     * Sum up all balances for all journals in this ledger.
+     *
+     * This relies on all balances being saved to the journals.
+     *
+     * @todo protect the sum from accidentally mixing currencies.
+     * @todo this is possibly *total* balance, rather than *current* balance.
+     * The journals hold the total balance that includes future transactions.
+     *
+     * @param string $currency
+     * @return Money
+     */
     public function getCurrentBalance(string $currency): Money
     {
-        if ($this->type == 'asset' || $this->type == 'expense') {
+        if ($this->type === LedgerType::ASSET || $this->type === LedgerType::EXPENSE) {
             $balance = $this->journal_transactions->sum('debit') - $this->journal_transactions->sum('credit');
         } else {
             $balance = $this->journal_transactions->sum('credit') - $this->journal_transactions->sum('debit');
         }
 
         return new Money($balance, new Currency($currency));
-    }
-
-    public function getCurrentBalanceInDollars(): float
-    {
-        return $this->getCurrentBalance('USD')->getAmount() / 100;
     }
 }

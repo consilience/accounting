@@ -16,6 +16,7 @@ use Money\Money;
 use Money\Currency;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\Log;
 
 /**
  * @property    Money $balance
@@ -23,7 +24,8 @@ use Carbon\CarbonInterface;
  * @property    CarbonInterface $updated_at
  * @property    CarbonInterface $post_date
  * @property    CarbonInterface $created_at
- * @property    Model $morphed
+ * @property    Model $morphed deprecated; use owner
+ * @property    Model $owner
  * @property    Ledger $ledger
  */
 class Journal extends Model
@@ -36,13 +38,23 @@ class Journal extends Model
     /**
      * Relationship to all the model instance this journal applies to.
      *
-     * @todo a better name would be good. Maybe journalFor()?
+     * @todo use owner
      *
      * @return MorphTo
      */
     public function morphed(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    /**
+     * The model instance this journal applies to.
+     *
+     * @return MorphTo
+     */
+    public function owner(): MorphTo
+    {
+        return $this->morphTo('owner', 'morphed_type', 'morphed_id');
     }
 
     public function ledger(): BelongsTo
@@ -94,8 +106,10 @@ class Journal extends Model
 
     public function resetCurrentBalances(): Money
     {
-        $this->balance = $this->balance();
+        $this->balance = $this->totalBalance();
         $this->save();
+
+        // Log::debug('Updating ledger balance', ['journalId' => $this->id, 'balance' => $this->balance]);
 
         return $this->balance;
     }
@@ -126,7 +140,8 @@ class Journal extends Model
     }
 
     /**
-     * Get the debit only balance of the journal based on a given day (inclusive).
+     * Get the debit only balance of the journal based on a given day
+     * (inclusive of all times in that day).
      *
      * @param CarbonInterface $date
      * @return Money
@@ -143,7 +158,8 @@ class Journal extends Model
     }
 
     /**
-     * Get the credit only balance of the journal based on a given day (inclusive).
+     * Get the credit only balance of the journal based on a given day
+     * (inclusive of all times in that day).
      *
      * @param CarbonInterface $date
      * @return Money
@@ -159,15 +175,16 @@ class Journal extends Model
     }
 
     /**
-     * @deprecated replaced with a polymorphic relationship.
+     * @deprecated replaced with a polymorphic $object->journalTransactions relationship
+     * in the IsJournalTransactionReference trait.
      */
-    public function transactionsReferencingObjectQuery(Model $object): HasMany
-    {
-        return $this
-            ->transactions()
-            ->where('reference_type', get_class($object))
-            ->where('reference_id', $object->id);
-    }
+    // public function transactionsReferencingObjectQuery(Model $object): HasMany
+    // {
+    //     return $this
+    //         ->transactions()
+    //         ->where('reference_type', $object->getMorphClass())
+    //         ->where('reference_id', $object->id);
+    // }
 
     /**
      * Get the balance of the journal for a given date.
@@ -191,27 +208,42 @@ class Journal extends Model
     }
 
     /**
-     * Get the balance of the journal. This *could* include future dates.
+     * Get the balance of the journal taking all transactions into account.
+     * This *could* include future dates.
      *
      * @return Money
      */
-    public function balance(): Money
+    public function totalBalance(): Money
     {
-        if ($this->transactions()->count() > 0) {
-            $creditBalance = $this->transactions()
-                ->where('currency', '=', $this->currency)
-                ->sum('credit');
+        $creditBalanceMinorUnits = (int)$this->transactions()
+            ->where('currency', '=', $this->currency)
+            ->sum('credit');
 
-            $debitBalance = $this->transactions()
-                ->where('currency', '=', $this->currency)
-                ->sum('debit');
+        $debitBalanceMinorUnits = (int)$this->transactions()
+            ->where('currency', '=', $this->currency)
+            ->sum('debit');
 
-            $balance = $creditBalance - $debitBalance;
-        } else {
-            $balance = 0;
-        }
+        $balance = $creditBalanceMinorUnits - $debitBalanceMinorUnits;
 
         return new Money($balance, new Currency($this->currency));
+    }
+
+    /**
+     * Remove matching journal entries.
+     *
+     * We want to remove transactions that match:
+     *
+     * - The given reference.
+     * - Any other arbitrary conditions (a query callback can do this).
+     *
+     * Some thought on how transaction groups would be handled is needed.
+     * Maybe for now only allow removal of entries that are no in a ledger.
+     *
+     * @return void
+     */
+    public function remove()
+    {
+        //
     }
 
     /**
