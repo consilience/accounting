@@ -22,7 +22,7 @@ class Accounting
     /**
      * @var array
      */
-    protected $transactions_pending = [];
+    protected $transactionsPending = [];
 
     public static function newDoubleEntryTransactionGroup(): Accounting
     {
@@ -31,8 +31,8 @@ class Accounting
 
     /**
      * @param Journal $journal
-     * @param string $method
-     * @param Money $money
+     * @param string $method 'credit' or 'debit'
+     * @param Money $money The amount of money to credit or debit.
      * @param string|null $memo
      * @param null $referenced_object
      * @param Carbon|null $postdate
@@ -57,7 +57,7 @@ class Accounting
             throw new InvalidJournalEntryValue();
         }
 
-        $this->transactions_pending[] = [
+        $this->transactionsPending[] = [
             'journal' => $journal,
             'method' => $method,
             'money' => $money,
@@ -67,32 +67,9 @@ class Accounting
         ];
     }
 
-    /**
-     * @param Journal $journal
-     * @param string $method
-     * @param $value
-     * @param string|null $memo
-     * @param null $referenced_object
-     * @param Carbon|null $postdate
-     * @throws InvalidJournalEntryValue
-     * @throws InvalidJournalMethod
-     */
-    function addDollarTransaction(
-        Journal $journal,
-        string $method,
-        $value,
-        string $memo = null,
-        $referenced_object = null,
-        Carbon $postdate = null
-    ): void {
-        $value = (int)($value * 100);
-        $money = new Money($value, new Currency('USD'));
-        $this->addTransaction($journal, $method, $money, $memo, $referenced_object, $postdate);
-    }
-
-    function getTransactionsPending(): array
+    function transactionsPending(): array
     {
-        return $this->transactions_pending;
+        return $this->transactionsPending;
     }
 
     /**
@@ -108,7 +85,7 @@ class Accounting
             return DB::transaction(function () {
                 $transactionGroupUuid = (string)Str::orderedUuid();
 
-                foreach ($this->transactions_pending as $transaction_pending) {
+                foreach ($this->transactionsPending as $transaction_pending) {
                     $transaction = $transaction_pending['journal']->{$transaction_pending['method']}(
                         $transaction_pending['money'],
                         $transaction_pending['memo'],
@@ -137,7 +114,7 @@ class Accounting
         $credits = 0;
         $debits = 0;
 
-        foreach ($this->transactions_pending as $transaction_pending) {
+        foreach ($this->transactionsPending as $transaction_pending) {
             if ($transaction_pending['method'] == 'credit') {
                 $credits += $transaction_pending['money']->getAmount();
             } else {

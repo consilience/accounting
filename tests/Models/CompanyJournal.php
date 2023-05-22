@@ -3,7 +3,7 @@
 namespace Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Scottlaurent\Accounting\ModelTraits\AccountingJournal;
+use Scottlaurent\Accounting\ModelTraits\HasAccountingJournal;
 
 /**
  * Class Account
@@ -16,7 +16,7 @@ use Scottlaurent\Accounting\ModelTraits\AccountingJournal;
  */
 class CompanyJournal extends Model
 {
-	use AccountingJournal;
+	use HasAccountingJournal;
 }
 
 

@@ -140,8 +140,7 @@ class Journal extends Model
     }
 
     /**
-     * Get the debit only balance of the journal based on a given day
-     * (inclusive of all times in that day).
+     * Get the debit only balance of the journal at the end of a given day.
      *
      * @param CarbonInterface $date
      * @return Money
@@ -154,12 +153,10 @@ class Journal extends Model
             ->sum('debit') ?: 0;
 
         return new Money($balanceMinorUnits, new Currency($this->currency));
-
     }
 
     /**
-     * Get the credit only balance of the journal based on a given day
-     * (inclusive of all times in that day).
+     * Get the credit only balance of the journal at the end of a given day.
      *
      * @param CarbonInterface $date
      * @return Money

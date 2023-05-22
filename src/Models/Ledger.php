@@ -50,18 +50,32 @@ class Ledger extends Model
      * @todo protect the sum from accidentally mixing currencies.
      * @todo this is possibly *total* balance, rather than *current* balance.
      * The journals hold the total balance that includes future transactions.
+     * @todo are the ledger account types even grouped properly here?
+     * @todo accept currency object rather than a code.
      *
      * @param string $currency
      * @return Money
      */
-    public function getCurrentBalance(string $currency): Money
+    public function currentBalance(string $currency): Money
     {
+        $currency = new Currency($currency);
+
+        $debit = $this->journal_transactions->reduce(
+            fn ($carry, JournalTransaction $transaction) => $transaction->debit ? $carry->add($transaction->debit) : $carry,
+            new Money(0, $currency),
+        );
+
+        $credit = $this->journal_transactions->reduce(
+            fn ($carry, JournalTransaction $transaction) => $transaction->credit ? $carry->add($transaction->credit) : $carry,
+            new Money(0, $currency),
+        );
+
         if ($this->type === LedgerType::ASSET || $this->type === LedgerType::EXPENSE) {
-            $balance = $this->journal_transactions->sum('debit') - $this->journal_transactions->sum('credit');
+            $balance = $debit->subtract($credit);
         } else {
-            $balance = $this->journal_transactions->sum('credit') - $this->journal_transactions->sum('debit');
+            $balance = $credit->subtract($debit);
         }
 
-        return new Money($balance, new Currency($currency));
+        return $balance;
     }
 }
