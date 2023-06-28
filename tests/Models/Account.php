@@ -16,5 +16,3 @@ class Account extends Model
 {
 	use HasAccountingJournal;
 }
-
-

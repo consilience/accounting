@@ -8,6 +8,8 @@ namespace Scottlaurent\Accounting\ModelTraits;
  * A model that has an accounting journal.
  */
 
+use Money\Money;
+use Money\Currency;
 use Illuminate\Database\Eloquent\Model;
 use Scottlaurent\Accounting\Models\Journal;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
@@ -27,32 +29,35 @@ trait HasAccountingJournal
     /**
      * Initialize a new journal for this model instance.
      *
-     * @todo accept currency code or model instance
-     *
-     * @param null|string $currency_code
-     * @param null|string $ledger_id
+     * @param null|string|Currency $currency
+     * @param null|string $ledgerId @todo should this not be an int?
      * @return mixed
      * @throws JournalAlreadyExists
      */
     public function initJournal(
-        ?string $currency_code = null,
-        ?string $ledger_id = null,
+        mixed $currency = null,
+        ?string $ledgerId = null,
     )
     {
-        if ($currency_code === null) {
-            $currency_code = config('accounting.base_currency');
+        if ($this->journal) {
+            throw new JournalAlreadyExists;
         }
 
-        if (! $this->journal) {
-            $journal = new Journal();
-
-            $journal->ledger_id = $ledger_id;
-            $journal->currency = $currency_code;
-            $journal->balance = 0;
-
-            return $this->journal()->save($journal);
+        if ($currency === null) {
+            $currency = config('accounting.base_currency');
         }
 
-        throw new JournalAlreadyExists;
+        if (is_string($currency)) {
+            $currency = new Currency($currency);
+        }
+
+        $journalClass = config('accounting.model-classes.journal');
+
+        $journal = new $journalClass();
+
+        $journal->ledger_id = $ledgerId;
+        $journal->balance = new Money(0, $currency);
+
+        return $this->journal()->save($journal);
     }
 }

@@ -18,7 +18,7 @@ return new class extends Migration
             $table->foreign('ledger_id')->references('id')->on('accounting_ledgers');
 
             $table->bigInteger('balance');
-            $table->string('currency', 3);
+            $table->string('currency_code', 3);
 
             // @todo need some indexes.
             $table->string('morphed_type', 60);

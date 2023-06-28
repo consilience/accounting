@@ -18,5 +18,3 @@ class CompanyJournal extends Model
 {
 	use HasAccountingJournal;
 }
-
-

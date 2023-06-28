@@ -9,20 +9,24 @@ use Money\Currency;
 use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Scottlaurent\Accounting\Casts\MoneyCast;
+use Scottlaurent\Accounting\Casts\CurrencyCast;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * @property string $id
  * @property string $journal_id
- * @property int $debit
- * @property int $credit
- * @property string $currency currency code (GBP, CAD, etc)
+ * @property Money|null $credit
+ * @property Money|null $debit
+ * @property Money $amount returns credit or (debit)
+ * @property Currency $currency
+ * @property string $currency_code ISO 4217
  * @property string|null $memo
  * @property array $tags
  * @property Journal $journal
  * @property Carbon $post_date
- * @property Carbon $updated_at
- * @property Carbon $created_at
+ * @property Carbon|null $updated_at
+ * @property Carbon|null $created_at
  */
 class JournalTransaction extends Model
 {
@@ -32,7 +36,7 @@ class JournalTransaction extends Model
     protected $table = 'accounting_journal_transactions';
 
     /**
-     * @var bool
+     * @var bool`
      */
     public $incrementing = false;
 
@@ -49,6 +53,9 @@ class JournalTransaction extends Model
     protected $casts = [
         'post_date' => 'datetime',
         'tags' => 'array',
+        'currency' => CurrencyCast::class . ':currency_code',
+        'credit' => MoneyCast::class . ':currency_code,credit',
+        'debit' => MoneyCast::class . ':currency_code,debit',
     ];
 
     /**
@@ -62,17 +69,17 @@ class JournalTransaction extends Model
             $transaction->id = (string)Str::orderedUuid();
         });
 
-        // @todo make these asychronous so the balance can be updated in the background,
+        // @todo make these asynchronous so the balance can be updated in the background,
         // and event driven so it can be used or not.
         // The job can also be set up to queue only if a copy of the job is not already
         // queued for the same journal.
 
         static::saved(function (self $transaction) {
-            $transaction->journal->resetCurrentBalances();
+            $transaction->journal->resetCurrentBalance();
         });
 
         static::deleted(function (self $transaction) {
-            $transaction->journal->resetCurrentBalances();
+            $transaction->journal->resetCurrentBalance();
         });
     }
 
@@ -115,31 +122,20 @@ class JournalTransaction extends Model
     }
 
     /**
-     * Set currency.
+     * The amount, either credit or (debit).
      *
-     * @deprecated The currency [code] is a column attribute, so can be handled through
-     * the usual Eloquent mechanisms.
-     *
-     * @param string $currency
+     * @return Money
      */
-    public function setCurrency($currency)
-    {
-        $this->currency = $currency;
-    }
-
-    public function getCreditAttribute(): ?Money
+    public function getAmountAttribute(): Money
     {
         if ($this->attributes['credit'] !== null) {
-            return new Money($this->attributes['credit'], new Currency($this->currency));
+            return $this->credit;
         }
-        return null;
-    }
 
-    public function getDebitAttribute(): ?Money
-    {
         if ($this->attributes['debit'] !== null) {
-            return new Money($this->attributes['debit'], new Currency($this->currency));
+            return $this->debit->multiply(-1);
         }
-        return null;
+
+        return new Money(0, $this->currency);
     }
 }

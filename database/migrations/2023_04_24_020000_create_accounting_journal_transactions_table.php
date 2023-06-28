@@ -26,7 +26,7 @@ return new class extends Migration
             $table->bigInteger('debit')->nullable();
             $table->bigInteger('credit')->nullable();
 
-            $table->string('currency', 3);
+            $table->string('currency_code', 3);
             $table->text('memo')->nullable();
             $table->text('tags')->nullable();
             $table->string('reference_type', 60)->nullable();

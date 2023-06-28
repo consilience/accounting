@@ -18,5 +18,3 @@ class User extends Model
 {
 	use HasAccountingJournal;
 }
-
-

@@ -8,25 +8,27 @@ namespace Scottlaurent\Accounting\Models;
  * A journal is a record of a transactions for a single parent model instance.
  */
 
+use Money\Money;
+use Carbon\Carbon;
+use Money\Currency;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Scottlaurent\Accounting\Casts\MoneyCast;
+use Scottlaurent\Accounting\Casts\CurrencyCast;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
-use Money\Money;
-use Money\Currency;
-use Carbon\Carbon;
-use Carbon\CarbonInterface;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * @property    Money $balance
- * @property    string $currency
- * @property    CarbonInterface $updated_at
- * @property    CarbonInterface $post_date
- * @property    CarbonInterface $created_at
- * @property    Model $morphed deprecated; use owner
- * @property    Model $owner
- * @property    Ledger $ledger
+ * @property Money $balance
+ * @property string $currency_code ISO 4217
+ * @property Currency $currency
+ * @property CarbonInterface $updated_at
+ * @property CarbonInterface $post_date
+ * @property CarbonInterface $created_at
+ * @property Model $morphed deprecated; use owner
+ * @property Model $owner
+ * @property Ledger|null $ledger
  */
 class Journal extends Model
 {
@@ -34,6 +36,14 @@ class Journal extends Model
      * @var string
      */
     protected $table = 'accounting_journals';
+
+    /**
+     * @var array
+     */
+    protected $casts = [
+        'currency' => CurrencyCast::class . ':currency_code',
+        'balance' => MoneyCast::class . ':currency_code,balance',
+    ];
 
     /**
      * Relationship to all the model instance this journal applies to.
@@ -62,36 +72,21 @@ class Journal extends Model
         return $this->belongsTo(config('accounting.model-classes.ledger'));
     }
 
-    /**
-     * @var array
-     */
-    protected $casts = [
-        // 'deleted_at' => 'timestamp',
-    ];
-
     protected static function boot()
     {
         parent::boot();
 
         // @todo when created, there will be no transactions and so no balance.
-        // Instead, set the balance default to zero though an attribiute.
+        // Instead, set the balance default to zero though an attribute.
 
         static::created(
-            fn (Journal $journal) => $journal->resetCurrentBalances()
+            fn (Journal $journal) => $journal->resetCurrentBalance()
         );
-
-        // parent::boot();
     }
 
-    // Since currency is mandatory, this could only be used to change the currency,
-    // and that does not sound like a sensible thing to do at all.
-    public function setCurrency(string $currency): self
-    {
-        $this->currency = $currency;
-
-        return $this;
-    }
-
+    /**
+     * @todo make sure the currencies match.
+     */
     public function assignToLedger(Ledger $ledger): self
     {
         $ledger->journals()->save($this);
@@ -104,7 +99,7 @@ class Journal extends Model
         return $this->hasMany(config('accounting.model-classes.journal-transaction'));
     }
 
-    public function resetCurrentBalances(): Money
+    public function resetCurrentBalance(): Money
     {
         $this->balance = $this->totalBalance();
         $this->save();
@@ -112,31 +107,6 @@ class Journal extends Model
         // Log::debug('Updating ledger balance', ['journalId' => $this->id, 'balance' => $this->balance]);
 
         return $this->balance;
-    }
-
-    /**
-     * @todo replace with a cast.
-     *
-     * @param Money|int $value
-     */
-    protected function getBalanceAttribute($value): Money
-    {
-        return new Money($value, new Currency($this->currency));
-    }
-
-    /**
-     * @todo replace with a cast.
-     * @todo make sure the correct currency has been supplied.
-     *
-     * @param Money|int $value
-     */
-    protected function setBalanceAttribute($value): void
-    {
-        $value = is_a($value, Money::class)
-            ? $value
-            : new Money($value, new Currency($this->currency));
-
-        $this->attributes['balance'] = $value ? (int)$value->getAmount() : null;
     }
 
     /**
@@ -149,10 +119,10 @@ class Journal extends Model
     {
         $balanceMinorUnits = $this->transactions()
             ->where('post_date', '<=', $date->endOfDay())
-            ->where('currency', '=', $this->currency)
+            ->where('currency_code', '=', $this->currency_code)
             ->sum('debit') ?: 0;
 
-        return new Money($balanceMinorUnits, new Currency($this->currency));
+        return new Money($balanceMinorUnits, $this->currency);
     }
 
     /**
@@ -165,23 +135,11 @@ class Journal extends Model
     {
         $balanceMinorUnits = $this->transactions()
             ->where('post_date', '<=', $date->endOfDay())
-            ->where('currency', '=', $this->currency)
+            ->where('currency_code', '=', $this->currency_code)
             ->sum('credit') ?: 0;
 
-        return new Money($balanceMinorUnits, new Currency($this->currency));
+        return new Money($balanceMinorUnits, $this->currency);
     }
-
-    /**
-     * @deprecated replaced with a polymorphic $object->journalTransactions relationship
-     * in the IsJournalTransactionReference trait.
-     */
-    // public function transactionsReferencingObjectQuery(Model $object): HasMany
-    // {
-    //     return $this
-    //         ->transactions()
-    //         ->where('reference_type', $object->getMorphClass())
-    //         ->where('reference_id', $object->id);
-    // }
 
     /**
      * Get the balance of the journal for a given date.
@@ -213,16 +171,16 @@ class Journal extends Model
     public function totalBalance(): Money
     {
         $creditBalanceMinorUnits = (int)$this->transactions()
-            ->where('currency', '=', $this->currency)
+            ->where('currency', '=', $this->currency_code)
             ->sum('credit');
 
         $debitBalanceMinorUnits = (int)$this->transactions()
-            ->where('currency', '=', $this->currency)
+            ->where('currency', '=', $this->currency_code)
             ->sum('debit');
 
         $balance = $creditBalanceMinorUnits - $debitBalanceMinorUnits;
 
-        return new Money($balance, new Currency($this->currency));
+        return new Money($balance, $this->currency);
     }
 
     /**
@@ -261,7 +219,7 @@ class Journal extends Model
     {
         $value = is_a($value, Money::class)
             ? $value->absolute()
-            : new Money(abs($value), new Currency($this->currency));
+            : new Money(abs($value), $this->currency);
 
         return $this->post($value, null, $memo, $post_date, $transaction_group);
     }
@@ -284,7 +242,7 @@ class Journal extends Model
     {
         $value = is_a($value, Money::class)
             ? $value->absolute()
-            : new Money(abs($value), new Currency($this->currency));
+            : new Money(abs($value), $this->currency);
 
         return $this->post(null, $value, $memo, $post_date, $transaction_group);
     }
@@ -310,14 +268,18 @@ class Journal extends Model
     ): JournalTransaction {
         $transaction = new JournalTransaction;
 
-        $transaction->credit = $credit ? $credit->getAmount() : null;
-        $transaction->debit = $debit ? $debit->getAmount() : null;
+        $transaction->credit = $credit;
+        $transaction->debit = $debit;
 
-        $currencyCode = $credit?->getCurrency()->getCode()
-            ?? $debit->getCurrency()->getCode();
+        // @todo use the journal currency, after confirming the correct
+        // currency has been passed in.
+
+        $currency = $credit?->getCurrency() ?? $debit->getCurrency();
 
         $transaction->memo = $memo;
-        $transaction->currency = $currencyCode;
+        // @todo the transaction needs to cast currency to an object,
+        // so this will change to: `$transaction->currency = $this->currency`
+        $transaction->currency = $currency;
         $transaction->post_date = $postDate ?: Carbon::now();
         $transaction->transaction_group = $transactionGroup;
 

@@ -1,10 +1,11 @@
 <?php
 
-use Faker\Factory as Faker;
-
 use Models\User;
+
 use Models\Account;
+use Money\Currency;
 use Models\CompanyJournal;
+use Faker\Factory as Faker;
 use Scottlaurent\Accounting\Models\Ledger;
 use \Scottlaurent\Accounting\Providers\AccountingServiceProvider;
 
@@ -15,7 +16,7 @@ abstract class BaseTest extends \Orchestra\Testbench\TestCase
     public function setUp(): void
     {
         parent::setUp();
-        $this->currency = 'USD';
+        $this->currency = new Currency('USD');
 
         $this->requireFilesIn(__DIR__ . '/Models');
 
@@ -158,6 +159,4 @@ abstract class BaseTest extends \Orchestra\Testbench\TestCase
         $this->company_income_journal = CompanyJournal::create(['name' => 'Company Income'])->initJournal();
         $this->company_income_journal->assignToLedger($this->company_income_ledger);
     }
-
-
 }

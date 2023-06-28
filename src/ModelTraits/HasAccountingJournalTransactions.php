@@ -17,7 +17,7 @@ use Scottlaurent\Accounting\Models\JournalTransaction;
  * @mixin Model
  * @property Collection<JournalTransaction> $journalTransactions
  */
-trait IsJournalTransactionReference
+trait HasAccountingJournalTransactions
 {
     /**
      * A model may have journal transactions referencing it.
