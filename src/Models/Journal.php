@@ -171,11 +171,11 @@ class Journal extends Model
     public function totalBalance(): Money
     {
         $creditBalanceMinorUnits = (int)$this->transactions()
-            ->where('currency', '=', $this->currency_code)
+            ->where('currency_code', '=', $this->currency_code)
             ->sum('credit');
 
         $debitBalanceMinorUnits = (int)$this->transactions()
-            ->where('currency', '=', $this->currency_code)
+            ->where('currency_code', '=', $this->currency_code)
             ->sum('debit');
 
         $balance = $creditBalanceMinorUnits - $debitBalanceMinorUnits;
