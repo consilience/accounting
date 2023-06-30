@@ -266,7 +266,9 @@ class Journal extends Model
         ?CarbonInterface $postDate = null,
         ?string $transactionGroup = null,
     ): JournalTransaction {
-        $transaction = new JournalTransaction;
+        /** @var string */
+        $transactionClass = config('accounting.model-classes.journal-transaction');
+        $transaction = new $transactionClass;
 
         $transaction->credit = $credit;
         $transaction->debit = $debit;
