@@ -26,6 +26,6 @@ trait HasAccountingJournalTransactions
      */
     public function journalTransactions(): MorphMany
     {
-        return $this->morphMany(JournalTransaction::class, 'reference');
+        return $this->morphMany(config('accounting.model-classes.journal-transaction'), 'reference');
     }
 }
