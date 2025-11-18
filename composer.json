@@ -10,6 +10,9 @@
         }
     ],
     "require": {
+        "php": "^8.2|^8.3|^8.4",
+        "illuminate/support": "^11.0|^12.0",
+        "illuminate/database": "^11.0|^12.0",
         "moneyphp/money": "^3.0|^4.0"
     },
     "extra": {
@@ -25,8 +28,8 @@
         }
     },
     "require-dev": {
-        "phpunit/phpunit": "^9",
-        "mockery/mockery": "^1.3",
-        "orchestra/testbench": "^7.0"
+        "phpunit/phpunit": "^10.0|^11.0",
+        "mockery/mockery": "^1.6",
+        "orchestra/testbench": "^9.0|^10.0"
     }
 }
